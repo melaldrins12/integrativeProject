@@ -45,10 +45,10 @@ export default {
         .then((result) => {
           this.$router.push('/dashboard');
         })
-        .catch((error => {
+        .catch((error) => {
           console.error('Error signing in with Google', error);
           this.handleError(error);
-        }));
+        });
     },
     submitForm() {
       this.signInWithEmailAndPassword(this.email, this.password);
@@ -66,7 +66,7 @@ export default {
         .catch((error) => {
           console.error('Error signing in with email and password', error);
           this.handleError(error);
-         });
+        });
     },
     createUserWithEmailAndPassword(email, password) {
       const auth = getAuth();
@@ -78,7 +78,7 @@ export default {
         .catch((error) => {
           console.error('Error creating user', error);
           this.handleError(error);
-         });
+        });
     },
     handleError(error) {
       const errorCode = error.code;
@@ -86,13 +86,13 @@ export default {
 
       if (errorCode === 'auth/invalid-email') {
         alert('Please enter a valid email address.');
-       } else if (errorCode === 'auth/user-disabled') {
+      } else if (errorCode === 'auth/user-disabled') {
         alert('User account is disabled.');
-       } else if (errorCode === 'auth/user-not-found') {
+      } else if (errorCode === 'auth/user-not-found') {
         alert('User not found.');
-       } else if (errorCode === 'auth/wrong-password') {
+      } else if (errorCode === 'auth/wrong-password') {
         alert('Incorrect password.');
-       } else {
+      } else {
         alert(errorMessage || 'Could not sign in.');
       }
     }
@@ -114,31 +114,40 @@ export default {
 
 .login-box {
   background: rgba(255, 255, 255, 0.95);
-  padding: 30px;
+  padding: 20px;
   border-radius: 12px;
   box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-  width: 320px;
+  width: 360px; /* Increased width */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .login-box h1 {
-  font-size: 2em;
+  font-size: 1.5em;
   margin-bottom: 10px;
   color: #333;
+  text-align: center;
+  width: 100%;
 }
 
 .login-box p {
-  font-size: 0.9em;
-  margin-bottom: 20px;
+  font-size: 0.8em;
+  margin-bottom: 15px;
   color: #666;
+  text-align: center;
+  width: 100%;
 }
 
 .google-button {
   background: #4285F4;
   color: white;
   border: none;
-  padding: 12px 0;
+  padding: 10px 0;
   border-radius: 6px;
-  font-size: 1em;
+  font-size: 0.9em;
   cursor: pointer;
   width: 100%;
   margin-bottom: 15px;
@@ -151,8 +160,9 @@ export default {
 
 .or-separator {
   border-top: 1px solid #ccc;
-  margin: 20px 0;
+  margin: 15px 0;
   position: relative;
+  width: 100%;
 }
 
 .or-separator::after {
@@ -169,27 +179,31 @@ export default {
 
 .login-form {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .input-field {
   width: 100%;
-  padding: 10px;
-  margin-bottom: 12px;
+  padding: 8px;
+  margin-bottom: 10px;
   border: 1px solid #ced4da;
   border-radius: 5px;
-  font-size: 0.95em;
+  font-size: 0.9em;
 }
 
 .submit-button {
   background-color: #20c997;
   color: white;
   border: none;
-  padding: 12px;
+  padding: 10px;
   border-radius: 6px;
   width: 100%;
-  font-size: 1em;
+  font-size: 0.9em;
   cursor: pointer;
   transition: background-color 0.3s;
+  margin-bottom: 10px;
 }
 
 .submit-button:hover {
@@ -197,9 +211,11 @@ export default {
 }
 
 .terms-text {
-  font-size: 0.8em;
+  font-size: 0.7em;
   color: #555;
-  margin-top: 20px;
+  margin-top: 15px;
+  text-align: center;
+  width: 100%;
 }
 
 .terms-text a {
