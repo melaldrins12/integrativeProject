@@ -1,90 +1,162 @@
+```vue
 <template>
-    <div class="login-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center; height:100vh; background: linear-gradient(to right, #0f4c81, #203a43); color: white;">
-      <div class="login-box" style="background: rgba(255, 255, 255, 0.85); padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); width: 300px;">
-        <h1 style="text-align: center; font-size: 1.8em; margin-bottom: 15px; color: #333;">Welcome to Our Service</h1>
-        <p style="text-align: center; font-size: 0.9em; margin-bottom: 20px; color: #555;">Please sign in to continue</p>
-        
-        <!-- Google Sign-In Button -->
-        <button @click="signInWithGoogle" style="background: #4285F4; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 0.9em; cursor: pointer; width: 100%; margin-bottom: 10px;">
-          Sign In with Google
+  <div class="min-h-screen flex items-center justify-center bg-gray-100">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+      <h2 class="text-2xl font-bold mb-6 text-center">Login</h2>
+      
+      <!-- Email/Password Login Form -->
+      <form @submit.prevent="loginWithEmail" class="space-y-4">
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+          <input
+            id="email"
+            v-model="email"
+            type="email"
+            required
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Enter your email"
+          />
+        </div>
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            required
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Enter your password"
+          />
+        </div>
+        <button
+          type="submit"
+          :disabled="isLoading"
+          class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          {{ isLoading ? 'Logging in...' : 'Login with Email' }}
         </button>
-        
-        <!-- Separator -->
-        <div class="or-separator" style="text-align: center; margin: 10px 0;">OR</div>
-        
-        <!-- Email & Password Sign-In/Sign-Up Form -->
-        <form @submit.prevent="submitForm" style="width: 100%;">
-          <input type="email" v-model="email" placeholder="Email" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ced4da; border-radius: 5px;">
-          <input type="password" v-model="password" placeholder="Password" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ced4da; border-radius: 5px;">
-          <button type="submit" style="background-color: #20c997; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%;">Sign Up/Sign In</button>
-        </form>
-        
-        <p style="text-align: center; font-size: 0.8em; color: #555;">By signing in, you agree to our <a href="#" style="color: #4285F4; text-decoration: none;">Terms of Service</a></p>
+      </form>
+
+      <!-- Google Sign-In Button -->
+      <div class="mt-6">
+        <button
+          @click="loginWithGoogle"
+          :disabled="isLoading"
+          class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center"
+        >
+          <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24">
+            <path
+              fill="currentColor"
+              d="M12.24 10.667H7.843v2.667h4.397c-.413 1.467-1.733 2.667-3.563 2.667-2.067 0-3.733-1.667-3.733-3.733s1.667-3.733 3.733-3.733c.933 0 1.8.333 2.467 1l1.867-1.867C11.067 6.267 9.267 5.333 7.377 5.333c-3.467 0-6.267 2.8-6.267 6.267s2.8 6.267 6.267 6.267c3.6 0 6-2.533 6-6.267v-.933z"
+            />
+          </svg>
+          {{ isLoading ? 'Logging in...' : 'Login with Google' }}
+        </button>
       </div>
+
+      <!-- Error Message -->
+      <p v-if="error" class="mt-4 text-red-600 text-center">{{ error }}</p>
+
+      <!-- Register Link -->
+      <p class="mt-4 text-center">
+        Don't have an account? <router-link to="/user-register" class="text-indigo-600 hover:underline">Register</router-link>
+      </p>
     </div>
-  </template>
-  
-  <script>
-  import { signInWithGoogle } from '../services/auth';
-  import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-  
-  export default {
-    data() {
-      return {
-       email: '',
-       password: ''
-     };
-    },
-    methods: {
-      signInWithGoogle() {
-        signInWithGoogle()
-          .then((result) => {
-            this.$router.push('/dashboard');
-          })
-          .catch((error => {
-            console.error('Error signing in with Google', error);
-          }));
-      },
-      submitForm() {
-        const auth = getAuth();
-        createUserWithEmailAndPassword(auth, this.email, this.password)
-          .then((userCredential) => {
-            // Signed in 
-            var user = userCredential.user;
-            this.$router.push('/dashboard');
-          })
-          .catch((error) => {
-            console.error('Error creating user', error);
-            alert(error.message || 'An error occurred while signing up.');
-          });
+  </div>
+</template>
+
+<script>
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
+
+export default {
+  name: 'Login',
+  setup() {
+    const email = ref('');
+    const password = ref('');
+    const error = ref('');
+    const isLoading = ref(false);
+    const router = useRouter();
+    const googleProvider = new GoogleAuthProvider();
+
+    const loginWithEmail = async () => {
+      if (isLoading.value) return;
+      isLoading.value = true;
+      error.value = '';
+      try {
+        // Sign in with email and password
+        const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value);
+        await redirectBasedOnRole(userCredential.user.uid);
+      } catch (err) {
+        error.value = getFriendlyError(err.code);
+      } finally {
+        isLoading.value = false;
       }
-    }
-  };
-  </script>
-  
-  <style scoped>
-  .login-container {
-    text-align: center;
-  }
-  
-  .login-box {
-    max-width: 300px;
-    width: 100%;
-    margin: auto;
-  }
-  
-  .or-separator {
-    border-top: 1px solid #ccc;
-    padding-top: 10px;
-    margin-top: 20px;
-  }
-  
-  button {
-    margin-top: 10px;
-  }
-  
-  a {
-    color: #4285F4;
-    text-decoration: none;
-  }
-  </style>
+    };
+
+    const loginWithGoogle = async () => {
+      if (isLoading.value) return;
+      isLoading.value = true;
+      error.value = '';
+      try {
+        // Sign in with Google
+        const userCredential = await signInWithPopup(auth, googleProvider);
+        await redirectBasedOnRole(userCredential.user.uid);
+      } catch (err) {
+        error.value = getFriendlyError(err.code);
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    const redirectBasedOnRole = async (uid) => {
+      // Fetch user role from Firestore
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        const role = userDoc.data().role;
+        if (role === 'admin') {
+          router.push('/admin-dashboard');
+        } else if (role === 'user') {
+          router.push('/user-dashboard');
+        } else {
+          error.value = 'Invalid user role.';
+          await auth.signOut(); // Sign out if role is invalid
+        }
+      } else {
+        error.value = 'User data not found.';
+        await auth.signOut(); // Sign out if no user document
+      }
+    };
+
+    const getFriendlyError = (code) => {
+      const errorMessages = {
+        'auth/user-not-found': 'No account found with this email.',
+        'auth/wrong-password': 'Incorrect password.',
+        'auth/invalid-email': 'Please enter a valid email.',
+        'auth/too-many-requests': 'Too many attempts. Try again later.',
+      };
+      return errorMessages[code] || 'An error occurred. Please try again.';
+    };
+
+    return {
+      email,
+      password,
+      error,
+      isLoading,
+      loginWithEmail,
+      loginWithGoogle,
+    };
+  },
+};
+</script>
+
+<style scoped>
+/* Tailwind CSS is used */
+</style>
