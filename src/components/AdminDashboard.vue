@@ -10,11 +10,34 @@
         </div>
         <div class="sidebar-content">
           <div class="sidebar-links">
-            <a href="/dashboard" class="sidebar-link" :class="{ active: !showHistory }" @click="toggleSidebar">Admin Dashboard</a>
-            <a href="#history" class="sidebar-link" :class="{ active: showHistory }" @click="scrollToHistory">Operation History</a>
-            <a href="/settings" class="sidebar-link" @click="toggleSidebar">Settings</a>
+            <a href="/dashboard" class="sidebar-link" :class="{ active: !showHistory }" @click="toggleSidebar">
+              <span class="sidebar-icon">📊</span>
+              Admin Dashboard
+            </a>
+            <a href="#history" class="sidebar-link" :class="{ active: showHistory }" @click="scrollToHistory">
+              <span class="sidebar-icon">📜</span>
+              Operation History
+            </a>
+            <div class="sidebar-section">
+              <h3 class="sidebar-section-title">User Management</h3>
+              <router-link to="/admin-register" class="sidebar-link" @click.native="toggleSidebar">
+                <span class="sidebar-icon">👤</span>
+                Admin Registration
+              </router-link>
+              <router-link to="/admin-list" class="sidebar-link" :class="{ active: $route.path === '/admin-list' }" @click="toggleSidebar">
+                <span class="sidebar-icon">👥</span>
+                Admin List
+              </router-link>
+              <router-link to="/user-list" class="sidebar-link" :class="{ active: $route.path === '/user-list' }" @click="toggleSidebar">
+                <span class="sidebar-icon">👥</span>
+                User List
+              </router-link>
+            </div>
           </div>
-          <button @click="signOut" class="sign-out-button" aria-label="Sign Out">Sign Out</button>
+          <button @click="signOut" class="sign-out-button" aria-label="Sign Out">
+            <span class="sidebar-icon">🚪</span>
+            Sign Out
+          </button>
         </div>
       </nav>
   
@@ -44,13 +67,24 @@
             </div>
           </div>
           <div v-else-if="user">
-            <p class="welcome-text">Welcome, {{ user.email }}!</p>
+            <p class="welcome-text">Welcome, {{ displayName || user.email }}!</p>
             <div class="dashboard-content">
               <!-- Metrics Section (Moved Above Chart) -->
               <div class="metrics-section">
                 <div class="card metric-card animate-fade-in" style="animation-delay: 0.2s;">
-                  <h3>Humidity</h3>
-                  <p class="metric-value">{{ latestHumidity }}<span class="metric-unit">%</span></p>
+                  <h3>Smoke Level</h3>
+                  <p class="metric-value">{{ latestSmokeLevel }}<span class="metric-unit">%</span></p>
+                  <div class="smoke-level-indicator" :class="smokeLevelClass">
+                    <span class="smoke-level-text">{{ smokeLevelText }}</span>
+                    <div class="smoke-level-bar">
+                      <div class="smoke-level-fill" :style="{ width: smokeLevelPercentage + '%' }"></div>
+                    </div>
+                    <!-- Add notification for low smoke level -->
+                    <div v-if="latestSmokeLevel <= smokeLevelThresholds.low" class="smoke-level-notification">
+                      <span class="notification-icon">⚠️</span>
+                      <span class="notification-text">Low smoke level detected! Please add fuel to maintain optimal smoking conditions.</span>
+                    </div>
+                  </div>
                 </div>
                 <div class="card metric-card animate-fade-in" style="animation-delay: 0.4s;">
                   <h3>Temperature</h3>
@@ -72,55 +106,76 @@
                   </button>
                 </div>
                 <div class="card chamber-card animate-fade-in" style="animation-delay: 0.8s;">
-                  <h3>Chamber Status</h3>
-                  <div class="chamber-status" v-tooltip="'Chamber status indicates whether the chamber is operational or empty.'">
-                    <span :class="isChamberRunning ? 'status-on' : 'status-off'">
-                      {{ isChamberRunning ? 'Chamber Running' : 'Chamber Empty' }}
-                    </span>
+                  <div class="chamber-header">
+                    <h3>Chamber Status</h3>
+                    <div class="chamber-status" v-tooltip="'Chamber status indicates whether the chamber is operational or empty.'">
+                      <span :class="['status-indicator', isChamberRunning ? 'status-on' : 'status-off']">
+                        <span class="status-dot"></span>
+                        {{ isChamberRunning ? 'Chamber Running' : 'Chamber Empty' }}
+                      </span>
+                    </div>
                   </div>
-                  <div v-if="isChamberRunning" class="chamber-timer">
-                    <span>Time Remaining: {{ formattedTimer }}</span>
+
+                  <div class="chamber-content">
+                    <div v-if="isChamberRunning" class="chamber-timer">
+                      <div class="timer-label">Time Remaining</div>
+                      <div class="timer-display">
+                        <div class="timer-unit">
+                          <span class="timer-value">{{ Math.floor(countdownTimer / 3600) }}</span>
+                          <span class="timer-label">Hours</span>
+                        </div>
+                        <div class="timer-separator">:</div>
+                        <div class="timer-unit">
+                          <span class="timer-value">{{ Math.floor((countdownTimer % 3600) / 60) }}</span>
+                          <span class="timer-label">Minutes</span>
+                        </div>
+                        <div class="timer-separator">:</div>
+                        <div class="timer-unit">
+                          <span class="timer-value">{{ countdownTimer % 60 }}</span>
+                          <span class="timer-label">Seconds</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="chamber-input">
+                      <div class="input-label">Set Duration</div>
+                      <div class="duration-inputs">
+                        <div class="input-group">
+                          <input
+                            v-model.number="countdownHours"
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="00"
+                            aria-label="Set countdown hours"
+                            class="duration-input"
+                          />
+                          <span class="input-label">Hours</span>
+                        </div>
+                        <div class="input-group">
+                          <input
+                            v-model.number="countdownMinutes"
+                            type="number"
+                            min="0"
+                            max="59"
+                            step="1"
+                            placeholder="00"
+                            aria-label="Set countdown minutes"
+                            class="duration-input"
+                          />
+                          <span class="input-label">Minutes</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div v-else class="chamber-input">
-                    <input
-                      v-model.number="countdownHours"
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="HH"
-                      aria-label="Set countdown hours"
-                      class="duration-input duration-input-hh"
-                    />
-                    <span class="timer-colon">:</span>
-                    <input
-                      v-model.number="countdownMinutes"
-                      type="number"
-                      min="0"
-                      max="59"
-                      step="1"
-                      placeholder="MM"
-                      aria-label="Set countdown minutes"
-                      class="duration-input duration-input-mm"
-                    />
-                    <span class="timer-colon">:</span>
-                    <input
-                      v-model.number="countdownSeconds"
-                      type="number"
-                      min="0"
-                      max="59"
-                      step="1"
-                      placeholder="SS"
-                      aria-label="Set countdown seconds"
-                      class="duration-input duration-input-ss"
-                    />
-                  </div>
+
                   <button
-                    @click="toggleChamber"
-                    :class="{ 'chamber-button': true, active: isChamberRunning }"
+                    @click="showConfirmation"
+                    :class="['chamber-button', { active: isChamberRunning }]"
                     aria-label="Toggle Chamber Status"
                     :disabled="!isChamberRunning && !isValidDuration"
                   >
-                    {{ isChamberRunning ? 'Stop Chamber' : 'Start Chamber' }}
+                    <span class="button-icon">{{ isChamberRunning ? '⏹️' : '▶️' }}</span>
+                    <span class="button-text">{{ isChamberRunning ? 'Stop Chamber' : 'Start Chamber' }}</span>
                   </button>
                 </div>
               </div>
@@ -168,7 +223,7 @@
                 <select v-model="selectedMetric" class="history-filter">
                   <option value="all">All Metrics</option>
                   <option value="temperature">Temperature</option>
-                  <option value="humidity">Humidity</option>
+                  <option value="smokeLevel">Smoke Level</option>
                   <option value="fan">Fan Status</option>
                   <option value="chamber">Chamber Status</option>
                 </select>
@@ -189,12 +244,14 @@
                     <span class="summary-value">{{ currentBatch.avgTemperature }}°C</span>
                   </div>
                   <div class="summary-item">
-                    <span class="summary-label">Avg Humidity:</span>
-                    <span class="summary-value">{{ currentBatch.avgHumidity }}%</span>
+                    <span class="summary-label">Avg Smoke Level:</span>
+                    <span class="summary-value">{{ currentBatch.avgSmokeLevel }}%</span>
                   </div>
                 </div>
               </div>
-              <div class="history-table-container">
+              
+              <!-- Desktop Table View -->
+              <div class="history-table-container desktop-only">
                 <table class="history-table">
                   <thead>
                     <tr>
@@ -207,8 +264,11 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(record, index) in filteredHistory" :key="index" class="history-row">
-                      <td>{{ formatTime(record.timestamp) }}</td>
+                    <tr v-for="(record, index) in filteredHistory" 
+                        :key="index" 
+                        class="history-row"
+                        @click="showHistoryDetails(record)">
+                      <td>{{ record.formattedTime || formatTime(record.timestamp) }}</td>
                       <td>{{ record.endTime ? formatTime(record.endTime) : '-' }}</td>
                       <td>{{ calculateDuration(record.timestamp, record.endTime) }}</td>
                       <td>{{ record.metric }}</td>
@@ -222,6 +282,41 @@
                   </tbody>
                 </table>
               </div>
+
+              <!-- Mobile Card View -->
+              <div class="history-cards mobile-only">
+                <div v-for="(record, index) in filteredHistory" 
+                     :key="index" 
+                     class="history-card-item"
+                     :class="record.status"
+                     @click="showHistoryDetails(record)">
+                  <div class="card-header">
+                    <span class="card-time">{{ record.formattedTime || formatTime(record.timestamp) }}</span>
+                    <span :class="['status-badge', record.status]">
+                      {{ record.status }}
+                    </span>
+                  </div>
+                  <div class="card-content">
+                    <div class="card-row">
+                      <span class="label">Metric:</span>
+                      <span class="value">{{ record.metric }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="label">Value:</span>
+                      <span class="value">{{ record.value }}</span>
+                    </div>
+                    <div class="card-row" v-if="record.endTime">
+                      <span class="label">End Time:</span>
+                      <span class="value">{{ formatTime(record.endTime) }}</span>
+                    </div>
+                    <div class="card-row" v-if="record.endTime">
+                      <span class="label">Duration:</span>
+                      <span class="value">{{ calculateDuration(record.timestamp, record.endTime) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="history-pagination">
                 <button 
                   @click="currentPage--" 
@@ -243,6 +338,103 @@
           </div>
         </main>
       </div>
+
+      <!-- Confirmation Dialog (Moved to root level) -->
+      <ConfirmationDialog
+        v-model="showConfirmDialog"
+        title="Confirm Chamber Start"
+        message="Are you sure you want to start the chamber with the following duration?"
+        :duration="formattedDuration"
+        icon="⏱️"
+        confirm-text="Start Chamber"
+        cancel-text="Cancel"
+        @confirm="confirmStart"
+        @cancel="cancelStart"
+      />
+
+      <!-- Add Modal Notification -->
+      <div v-if="showSmokeLevelModal" class="modal-overlay">
+        <div class="modal-content">
+          <div class="modal-header">
+            <span class="modal-icon">⚠️</span>
+            <h3>Low Smoke Level Alert</h3>
+          </div>
+          <div class="modal-body">
+            <p>The smoke level is currently at {{ latestSmokeLevel }}%, which is below the optimal range.</p>
+            <p>Please add fuel to maintain proper smoking conditions.</p>
+          </div>
+          <div class="modal-footer">
+            <button @click="acknowledgeSmokeLevel" class="modal-button confirm">
+              I'll Add Fuel
+            </button>
+            <button @click="dismissSmokeLevel" class="modal-button dismiss">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Modal -->
+      <div v-if="showHistoryModal" class="modal-overlay" @click.self="closeHistoryModal">
+        <div class="modal-content history-modal" @click.stop>
+          <div class="modal-header">
+            <span class="modal-icon">📅</span>
+            <h3>Operation Details</h3>
+            <button class="close-button" @click="closeHistoryModal">&times;</button>
+          </div>
+          <div class="modal-body" v-if="selectedHistoryRecord">
+            <div class="history-detail-item">
+              <label>Start Time:</label>
+              <span>{{ formatDateTime(selectedHistoryRecord.timestamp) }}</span>
+            </div>
+            <div class="history-detail-item">
+              <label>End Time:</label>
+              <span>{{ formatDateTime(selectedHistoryRecord.endTime) }}</span>
+            </div>
+            <div class="history-detail-item">
+              <label>Duration:</label>
+              <span>{{ calculateDuration(selectedHistoryRecord.timestamp, selectedHistoryRecord.endTime) }}</span>
+            </div>
+            <div class="history-detail-item">
+              <label>Metric:</label>
+              <span>{{ selectedHistoryRecord?.metric }}</span>
+            </div>
+            <div class="history-detail-item">
+              <label>Value:</label>
+              <span>{{ selectedHistoryRecord?.value }}</span>
+            </div>
+            <div class="history-detail-item">
+              <label>Status:</label>
+              <span :class="['status-badge', selectedHistoryRecord?.status]">
+                {{ selectedHistoryRecord?.status }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Timer Completion Modal -->
+      <div v-if="showTimerCompletionModal" class="modal-overlay">
+        <div class="modal-content timer-completion-modal">
+          <div class="modal-header">
+            <span class="modal-icon">⏰</span>
+            <h3>Timer Complete</h3>
+            <button class="close-button" @click="closeTimerCompletionModal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p>The chamber timer has completed its cycle.</p>
+            <p>Would you like to:</p>
+            <div class="modal-actions">
+              <button @click="restartTimer" class="modal-button restart">
+                Restart Timer
+              </button>
+              <button @click="closeTimerCompletionModal" class="modal-button close">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </template>
   
@@ -250,8 +442,10 @@
   import { auth } from '../firebaseConfig';
   import { signOut } from '../services/auth';
   import CurveChart from '../components/CurveChart.vue';
+  import ConfirmationDialog from '../components/ConfirmationDialog.vue';
   import { getDoc, doc } from 'firebase/firestore';
   import { db } from '../firebaseConfig';
+  import { smokingSessionService } from '../services/smokingSession';
   
   // Simple tooltip directive
   const tooltipDirective = {
@@ -278,6 +472,7 @@
   export default {
     components: {
       CurveChart,
+      ConfirmationDialog,
     },
     directives: {
       tooltip: tooltipDirective,
@@ -285,16 +480,16 @@
     data() {
       return {
         user: null,
-        isAuthLoading: true, // Track auth state loading
+        displayName: '',
+        isAuthLoading: true,
         isFanOn: false,
         isChamberRunning: false,
-        countdownTimer: 300, // Current countdown in seconds
-        countdownHours: 0, // Default 0 hours
-        countdownMinutes: 0, // Default 5 minutes
-        countdownSeconds: 0, // Default 0 seconds
+        countdownTimer: 0,
+        countdownHours: 0,
+        countdownMinutes: 0,
         timerInterval: null,
         latestTemperature: 0,
-        latestHumidity: 0,
+        latestSmokeLevel: 0,
         dataInterval: null,
         isDarkMode: false,
         isSidebarOpen: false,
@@ -315,10 +510,11 @@
               tension: 0.4,
               pointHoverBackgroundColor: '#ff6b6b',
               pointHoverBorderColor: '#ffffff',
-              hidden: false, // Track visibility
+              hidden: false,
+              yAxisID: 'y'
             },
             {
-              label: 'Humidity (%)',
+              label: 'Smoke Level (%)',
               data: [],
               borderColor: '#4ecdc4',
               backgroundColor: (ctx) => {
@@ -331,13 +527,18 @@
               tension: 0.4,
               pointHoverBackgroundColor: '#4ecdc4',
               pointHoverBorderColor: '#ffffff',
-              hidden: false, // Track visibility
-            },
-          ],
+              hidden: false,
+              yAxisID: 'y1'
+            }
+          ]
         },
         chartOptions: {
           responsive: true,
           maintainAspectRatio: false,
+          animation: {
+            duration: 750,
+            easing: 'easeInOutQuart'
+          },
           plugins: {
             legend: {
               display: true,
@@ -352,27 +553,9 @@
                 const index = legendItem.datasetIndex;
                 const chart = legend.chart;
                 const datasets = chart.data.datasets;
-  
+
                 // Toggle the clicked dataset's visibility
                 datasets[index].hidden = !datasets[index].hidden;
-  
-                // If Humidity (index 1) is clicked
-                if (index === 1) {
-                  if (datasets[1].hidden) {
-                    // Show only Temperature
-                    datasets[0].hidden = false; // Ensure Temperature is visible
-                  }
-                  // If Humidity is shown, both can be visible (no change to Temperature)
-                }
-                // If Temperature (index 0) is clicked
-                else if (index === 0) {
-                  if (datasets[0].hidden) {
-                    // Show only Humidity
-                    datasets[1].hidden = false; // Ensure Humidity is visible
-                  }
-                  // If Temperature is shown, both can be visible (no change to Humidity)
-                }
-  
                 chart.update();
               },
             },
@@ -382,10 +565,23 @@
               titleFont: { family: "'Lato', sans-serif" },
               bodyFont: { family: "'Lato', sans-serif" },
               cornerRadius: 8,
+              mode: 'index',
+              intersect: false,
+              animation: {
+                duration: 200
+              }
             },
           },
           scales: {
             x: {
+              type: 'time',
+              time: {
+                unit: 'minute',
+                displayFormats: {
+                  minute: 'HH:mm'
+                },
+                tooltipFormat: 'HH:mm:ss'
+              },
               title: {
                 display: true,
                 text: 'Time',
@@ -401,7 +597,14 @@
                   family: "'Lato', sans-serif",
                 },
                 color: '#666',
+                maxRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: 8
               },
+              grid: {
+                display: true,
+                color: 'rgba(0, 0, 0, 0.1)'
+              }
             },
             y: {
               title: {
@@ -422,8 +625,27 @@
               },
               suggestedMin: 0,
               suggestedMax: 100,
+              grid: {
+                display: true,
+                color: 'rgba(0, 0, 0, 0.1)'
+              }
             },
           },
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false
+          },
+          elements: {
+            line: {
+              tension: 0.4
+            },
+            point: {
+              radius: 0,
+              hitRadius: 10,
+              hoverRadius: 4
+            }
+          }
         },
         // History related data
         selectedBatch: 'current',
@@ -432,7 +654,7 @@
           startDate: new Date(),
           duration: 0,
           avgTemperature: 0,
-          avgHumidity: 0
+          avgSmokeLevel: 0
         },
         selectedTimeRange: '24h',
         selectedMetric: 'all',
@@ -447,7 +669,7 @@
           startTime: null,
           endTime: null,
           temperatureData: [],
-          humidityData: [],
+          smokeLevelData: [],
           timestamps: [],
           isActive: false,
           duration: 0
@@ -455,18 +677,35 @@
         batchHistory: [],
         isRecording: false,
         timerInterval: null,
-        dataInterval: null
+        dataInterval: null,
+        showConfirmDialog: false,
+        smokeLevelThresholds: {
+          low: 30,
+          medium: 60,
+          high: 90
+        },
+        showSmokeLevelModal: false,
+        lastNotificationTime: null,
+        notificationCooldown: 5 * 60 * 1000, // 5 minutes cooldown
+        currentSession: null,
+        sessionInterval: null,
+        dataUpdateInterval: null,
+        isTimerRunning: false,
+        showHistoryModal: false,
+        selectedHistoryRecord: null,
+        currentBatchId: null,
+        showTimerCompletionModal: false,
       };
     },
     computed: {
+      countdownDuration() {
+        return (this.countdownHours || 0) * 3600 + (this.countdownMinutes || 0) * 60;
+      },
       formattedTimer() {
         const hours = Math.floor(this.countdownTimer / 3600);
         const minutes = Math.floor((this.countdownTimer % 3600) / 60);
         const seconds = this.countdownTimer % 60;
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      },
-      countdownDuration() {
-        return (this.countdownHours || 0) * 3600 + (this.countdownMinutes || 0) * 60 + (this.countdownSeconds || 0);
       },
       isValidDuration() {
         return this.countdownDuration >= 60;
@@ -505,12 +744,37 @@
       },
       totalPages() {
         return Math.ceil(this.historyData.length / this.itemsPerPage);
+      },
+      formattedDuration() {
+        const hours = this.countdownHours.toString().padStart(2, '0');
+        const minutes = this.countdownMinutes.toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+      },
+      smokeLevelClass() {
+        if (this.latestSmokeLevel <= this.smokeLevelThresholds.low) {
+          return 'smoke-level-low';
+        } else if (this.latestSmokeLevel <= this.smokeLevelThresholds.medium) {
+          return 'smoke-level-medium';
+        } else {
+          return 'smoke-level-high';
+        }
+      },
+      smokeLevelText() {
+        if (this.latestSmokeLevel <= this.smokeLevelThresholds.low) {
+          return 'Low';
+        } else if (this.latestSmokeLevel <= this.smokeLevelThresholds.medium) {
+          return 'Medium';
+        } else {
+          return 'High';
+        }
+      },
+      smokeLevelPercentage() {
+        return Math.min(100, (this.latestSmokeLevel / this.smokeLevelThresholds.high) * 100);
       }
     },
-    created() {
+    async created() {
       // Initialize data immediately
       this.generateInitialData();
-      this.startLiveDataSimulation();
       
       // Set theme
       this.isDarkMode = localStorage.getItem('theme') === 'dark';
@@ -524,16 +788,19 @@
           this.$router.push('/login');
         } else {
           try {
-            // Fetch user role
+            // Fetch user role and display name
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
-              const role = userDoc.data().role;
+              const userData = userDoc.data();
+              this.displayName = userData.displayName || '';
+              const role = userData.role;
               if (role !== 'admin') {
-                // If not admin, redirect to appropriate dashboard
                 this.$router.push(role === 'user' ? '/user-dashboard' : '/login');
+              } else {
+                // Check for active session when admin logs in
+                await this.checkActiveSession();
               }
             } else {
-              // No user document, sign out and redirect to login
               await auth.signOut();
               this.$router.push('/login');
             }
@@ -545,16 +812,19 @@
       });
       this.generateHistoryData();
     },
+    mounted() {
+      this.generateHistoryData();
+    },
     beforeUnmount() {
-      // Clean up the auth listener when component is destroyed
+      // Clean up intervals and listeners
       if (this.unsubscribe) {
         this.unsubscribe();
       }
-      if (this.dataInterval) {
-        clearInterval(this.dataInterval);
-      }
       if (this.timerInterval) {
         clearInterval(this.timerInterval);
+      }
+      if (this.dataInterval) {
+        clearInterval(this.dataInterval);
       }
     },
     methods: {
@@ -571,7 +841,7 @@
         const now = new Date();
         const labels = [];
         const temperatureData = [];
-        const humidityData = [];
+        const smokeLevelData = [];
   
         for (let i = 0; i < 24; i++) {
           const time = new Date(now.getTime() - i * 60 * 60 * 1000);
@@ -579,15 +849,15 @@
           const temp = Math.random() * 30;
           const hum = Math.random() * 100;
           temperatureData.push(temp);
-          humidityData.push(hum);
+          smokeLevelData.push(hum);
         }
   
         this.chartData.labels = labels.reverse();
         this.chartData.datasets[0].data = temperatureData.reverse();
-        this.chartData.datasets[1].data = humidityData.reverse();
+        this.chartData.datasets[1].data = smokeLevelData.reverse();
   
         this.latestTemperature = temperatureData[0].toFixed(1);
-        this.latestHumidity = humidityData[0].toFixed(1);
+        this.latestSmokeLevel = smokeLevelData[0].toFixed(1);
       },
       startLiveDataSimulation() {
         this.dataInterval = setInterval(() => {
@@ -598,7 +868,7 @@
 
             // Store data for current batch
             this.currentBatchData.temperatureData.push(newTemp);
-            this.currentBatchData.humidityData.push(newHum);
+            this.currentBatchData.smokeLevelData.push(newHum);
             this.currentBatchData.timestamps.push(now);
 
             // Add real-time records to history
@@ -614,28 +884,32 @@
               batchId: this.currentBatchData.id,
               timestamp: now,
               endTime: null,
-              metric: 'humidity',
+              metric: 'smokeLevel',
               value: `${newHum.toFixed(1)}%`,
               status: 'normal'
             };
             this.historyData.unshift(tempRecord, humRecord);
 
-            // Update chart data
+            // Update chart data with smooth animation
             this.updateChartData(newTemp, newHum, now);
           }
-        }, 5000);
+        }, 1000); // Update every second for more real-time feel
       },
       updateChartData(newTemp, newHum, timestamp) {
-        const newLabel = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const newLabel = timestamp;
         const updatedLabels = [...this.chartData.labels];
         const updatedTempData = [...this.chartData.datasets[0].data];
         const updatedHumData = [...this.chartData.datasets[1].data];
 
-        updatedLabels.shift();
+        // Keep only the last 60 points (1 minute of data at 1-second intervals)
+        if (updatedLabels.length >= 60) {
+          updatedLabels.shift();
+          updatedTempData.shift();
+          updatedHumData.shift();
+        }
+
         updatedLabels.push(newLabel);
-        updatedTempData.shift();
         updatedTempData.push(newTemp);
-        updatedHumData.shift();
         updatedHumData.push(newHum);
 
         this.chartData = {
@@ -647,130 +921,158 @@
         };
 
         this.latestTemperature = newTemp.toFixed(1);
-        this.latestHumidity = newHum.toFixed(1);
+        this.latestSmokeLevel = newHum.toFixed(1);
       },
       toggleFan() {
         this.isFanOn = !this.isFanOn;
         console.log(`Fan is now ${this.isFanOn ? 'ON' : 'OFF'}`);
       },
-      toggleChamber() {
-        if (!this.isChamberRunning) {
-          // Start new batch
-          const batchId = this.batches.length + 1;
-          this.currentBatchData = {
-            id: batchId,
-            startTime: new Date(),
-            endTime: null,
-            temperatureData: [],
-            humidityData: [],
-            timestamps: [],
-            isActive: true,
-            duration: this.countdownDuration
-          };
-          this.isRecording = true;
-          this.isChamberRunning = true;
-
-          // Add batch start record
-          const startRecord = {
-            batchId: batchId,
-            timestamp: this.currentBatchData.startTime,
-            endTime: null,
-            metric: 'batch',
-            value: `Batch ${batchId} Started`,
-            status: 'active'
-          };
-          this.historyData.unshift(startRecord);
-
-          // Start data collection
-          this.startDataCollection();
-          
-          // Start timer
-          this.countdownTimer = this.countdownDuration;
-          this.timerInterval = setInterval(() => {
-            if (this.countdownTimer > 0) {
-              this.countdownTimer--;
-            } else {
-              this.stopChamber();
-            }
-          }, 1000);
-        } else {
-          this.stopChamber();
-        }
-      },
-      startDataCollection() {
-        // Clear any existing interval
-        if (this.dataInterval) {
-          clearInterval(this.dataInterval);
+      startTimer() {
+        // Clear any existing timer
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
         }
 
-        // Start new data collection interval
-        this.dataInterval = setInterval(() => {
-          if (this.isChamberRunning && this.isRecording) {
-            const now = new Date();
-            const newTemp = Math.random() * 30;
-            const newHum = Math.random() * 100;
+        // Generate a new batch ID for this session
+        this.currentBatchId = Date.now();
 
-            // Store data for current batch
-            this.currentBatchData.temperatureData.push(newTemp);
-            this.currentBatchData.humidityData.push(newHum);
-            this.currentBatchData.timestamps.push(now);
+        // Calculate total seconds
+        const totalSeconds = (this.countdownHours * 3600) + (this.countdownMinutes * 60);
+        this.countdownTimer = totalSeconds;
+        console.log('Timer started with:', totalSeconds, 'seconds');
 
-            // Add real-time records to history
-            const tempRecord = {
-              batchId: this.currentBatchData.id,
-              timestamp: now,
-              endTime: null,
-              metric: 'temperature',
-              value: `${newTemp.toFixed(1)}°C`,
-              status: 'normal'
-            };
-            const humRecord = {
-              batchId: this.currentBatchData.id,
-              timestamp: now,
-              endTime: null,
-              metric: 'humidity',
-              value: `${newHum.toFixed(1)}%`,
-              status: 'normal'
-            };
-            this.historyData.unshift(tempRecord, humRecord);
+        // Record start time in history
+        const startTime = new Date();
+        const startRecord = {
+          batchId: this.currentBatchId,
+          timestamp: startTime,
+          endTime: null,
+          metric: 'chamber',
+          value: 'Started',
+          status: 'active',
+          duration: totalSeconds,
+          formattedTime: this.formatTime(startTime)
+        };
+        this.historyData.unshift(startRecord);
+        console.log('Added start record to history:', startRecord);
 
-            // Update chart data
-            this.updateChartData(newTemp, newHum, now);
+        // Start the countdown
+        this.timerInterval = setInterval(() => {
+          if (this.countdownTimer > 0) {
+            this.countdownTimer--;
+            console.log('Timer:', this.countdownTimer);
+          } else {
+            clearInterval(this.timerInterval);
+            this.stopChamber(true); // Pass true to indicate timer completion
           }
-        }, 5000);
+        }, 1000);
       },
-      stopChamber() {
-        this.isChamberRunning = false;
-        this.isRecording = false;
-        this.currentBatchData.endTime = new Date();
-        this.currentBatchData.isActive = false;
+      stopTimer() {
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        }
+        console.log('Timer stopped');
 
-        // Stop data collection
+        // Record stop time in history
+        const stopTime = new Date();
+        const stopRecord = {
+          batchId: this.currentBatchId,
+          timestamp: stopTime,
+          endTime: stopTime,
+          metric: 'chamber',
+          value: 'Stopped',
+          status: 'inactive',
+          formattedTime: this.formatTime(stopTime)
+        };
+        this.historyData.unshift(stopRecord);
+        console.log('Added stop record to history:', stopRecord);
+
+        // Reset current batch ID
+        this.currentBatchId = null;
+      },
+      async toggleChamber() {
+        if (!this.isChamberRunning) {
+          // Start chamber
+          this.isChamberRunning = true;
+          this.startTimer();
+        } else {
+          // Stop chamber
+          this.isChamberRunning = false;
+          this.stopTimer();
+        }
+      },
+      async stopChamber(isTimerComplete = false) {
+        this.isChamberRunning = false;
+        this.stopTimer();
+        
+        // Only show completion modal if timer completed naturally
+        if (isTimerComplete) {
+          this.showTimerCompletionModal = true;
+        }
+      },
+      async startSessionMonitoring() {
+        // Clear any existing intervals
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        }
         if (this.dataInterval) {
           clearInterval(this.dataInterval);
           this.dataInterval = null;
         }
 
-        // Add batch end record
-        const endRecord = {
-          batchId: this.currentBatchData.id,
-          timestamp: this.currentBatchData.endTime,
-          endTime: this.currentBatchData.endTime,
-          metric: 'batch',
-          value: `Batch ${this.currentBatchData.id} Completed`,
-          status: 'completed'
-        };
-        this.historyData.unshift(endRecord);
+        console.log('Starting session monitoring...');
+        console.log('Initial countdown timer:', this.countdownTimer);
 
-        // Save batch data
-        this.saveBatchData();
+        // Start session timer
+        this.timerInterval = setInterval(() => {
+          if (this.countdownTimer > 0) {
+            this.countdownTimer--;
+            console.log('Timer tick:', this.countdownTimer);
+            
+            // Update session duration in Firestore
+            if (this.currentSession) {
+              smokingSessionService.updateSession(this.currentSession.id, {
+                currentDuration: this.currentSession.targetDuration - this.countdownTimer,
+                adminId: this.user.uid
+              }).catch(error => {
+                console.error('Error updating session duration:', error);
+              });
+            }
+          } else {
+            console.log('Timer reached zero, stopping chamber');
+            this.stopChamber();
+          }
+        }, 1000);
 
-        // Reset timer
-        this.countdownTimer = this.countdownDuration;
-        if (this.timerInterval) {
-          clearInterval(this.timerInterval);
-          this.timerInterval = null;
-        }
+        // Start data collection
+        this.startDataCollection();
+      },
+      async startDataCollection() {
+        console.log('Starting data collection...');
+        this.dataInterval = setInterval(async () => {
+          if (this.isChamberRunning && this.isRecording && this.currentSession) {
+            try {
+              const now = new Date();
+              const newTemp = Math.random() * 30;
+              const newHum = Math.random() * 100;
+
+              // Update session data in Firestore
+              await smokingSessionService.updateSession(this.currentSession.id, {
+                temperatureData: [...this.currentSession.temperatureData, newTemp],
+                smokeLevelData: [...this.currentSession.smokeLevelData, newHum],
+                timestamps: [...this.currentSession.timestamps, now],
+                adminId: this.user.uid
+              });
+
+              // Update local state
+              this.updateChartData(newTemp, newHum, now);
+            } catch (error) {
+              console.error('Error updating session data:', error);
+            }
+          }
+        }, 5000);
       },
       toggleTheme() {
         this.isDarkMode = !this.isDarkMode;
@@ -784,6 +1086,7 @@
         this.toggleSidebar();
       },
       formatTime(timestamp) {
+        if (!timestamp) return '-';
         const date = new Date(timestamp);
         return date.toLocaleString('en-US', {
           year: 'numeric',
@@ -817,7 +1120,7 @@
           startDate: new Date(now - (i * 7 * 24 * 60 * 60 * 1000)),
           duration: Math.floor(Math.random() * 24 * 60 * 60),
           avgTemperature: (Math.random() * 20 + 20).toFixed(1),
-          avgHumidity: (Math.random() * 30 + 50).toFixed(1)
+          avgSmokeLevel: (Math.random() * 30 + 50).toFixed(1)
         }));
 
         // Generate sample history data for each batch
@@ -845,7 +1148,7 @@
             status: 'active'
           });
 
-          // Add temperature and humidity records
+          // Add temperature and smoke level records
           for (let i = 0; i < 50; i++) {
             const timestamp = new Date(batchStart.getTime() + i * 30 * 60 * 1000);
             if (timestamp <= batchEnd) {
@@ -862,7 +1165,7 @@
                 batchId: batch.id,
                 timestamp,
                 endTime: null,
-                metric: 'humidity',
+                metric: 'smokeLevel',
                 value: `${(Math.random() * 30 + 50).toFixed(1)}%`,
                 status: Math.random() > 0.8 ? 'warning' : 'normal'
               });
@@ -940,7 +1243,7 @@
                     <th>Duration</th>
                     <th>Metric</th>
                     <th>Value</th>
-                    <th>Status</th>
+                   
                   </tr>
                 </thead>
                 <tbody>
@@ -951,7 +1254,7 @@
                       <td>${this.calculateDuration(record.timestamp, record.endTime)}</td>
                       <td>${record.metric}</td>
                       <td>${record.value}</td>
-                      <td>${record.status}</td>
+                      
                     </tr>
                   `).join('')}
                 </tbody>
@@ -1026,9 +1329,9 @@
           endDate: this.currentBatchData.endTime,
           duration: Math.floor((this.currentBatchData.endTime - this.currentBatchData.startTime) / 1000),
           avgTemperature: this.calculateAverageTemperature(),
-          avgHumidity: this.calculateAverageHumidity(),
+          avgSmokeLevel: this.calculateAverageSmokeLevel(),
           temperatureData: this.currentBatchData.temperatureData,
-          humidityData: this.currentBatchData.humidityData,
+          smokeLevelData: this.currentBatchData.smokeLevelData,
           timestamps: this.currentBatchData.timestamps,
           targetDuration: this.currentBatchData.duration
         };
@@ -1056,10 +1359,10 @@
         const sum = this.currentBatchData.temperatureData.reduce((a, b) => a + b, 0);
         return (sum / this.currentBatchData.temperatureData.length).toFixed(1);
       },
-      calculateAverageHumidity() {
-        if (this.currentBatchData.humidityData.length === 0) return 0;
-        const sum = this.currentBatchData.humidityData.reduce((a, b) => a + b, 0);
-        return (sum / this.currentBatchData.humidityData.length).toFixed(1);
+      calculateAverageSmokeLevel() {
+        if (this.currentBatchData.smokeLevelData.length === 0) return 0;
+        const sum = this.currentBatchData.smokeLevelData.reduce((a, b) => a + b, 0);
+        return (sum / this.currentBatchData.smokeLevelData.length).toFixed(1);
       },
       calculateDuration(startTime, endTime) {
         if (!startTime || !endTime) return '-';
@@ -1077,7 +1380,117 @@
           const seconds = duration % 60;
           return `${hours}h ${minutes}m ${seconds}s`;
         }
-      }
+      },
+      showConfirmation() {
+        if (this.isChamberRunning) {
+          this.toggleChamber();
+        } else {
+          this.showConfirmDialog = true;
+        }
+      },
+      confirmStart() {
+        this.showConfirmDialog = false;
+        this.toggleChamber();
+      },
+      cancelStart() {
+        this.showConfirmDialog = false;
+      },
+      checkAndShowNotification() {
+        const now = Date.now();
+        if (!this.lastNotificationTime || (now - this.lastNotificationTime) > this.notificationCooldown) {
+          this.showSmokeLevelModal = true;
+          this.lastNotificationTime = now;
+        }
+      },
+      acknowledgeSmokeLevel() {
+        this.showSmokeLevelModal = false;
+        // You could add additional logic here, like logging the acknowledgment
+      },
+      dismissSmokeLevel() {
+        this.showSmokeLevelModal = false;
+      },
+      async checkActiveSession() {
+        try {
+          console.log('Checking for active session...');
+          const activeSession = await smokingSessionService.getActiveSession();
+          if (activeSession) {
+            console.log('Found active session:', activeSession);
+            this.currentSession = activeSession;
+            this.isChamberRunning = true;
+            this.isRecording = true;
+            
+            // Calculate remaining time
+            const startTime = activeSession.startTime.toDate();
+            const elapsedTime = Math.floor((Date.now() - startTime.getTime()) / 1000);
+            this.countdownTimer = Math.max(0, activeSession.targetDuration - elapsedTime);
+            console.log('Resumed session with remaining time:', this.countdownTimer);
+            
+            // Start the timer
+            this.startTimer();
+            
+            // Start data collection
+            this.startDataCollection();
+          } else {
+            console.log('No active session found');
+            this.isChamberRunning = false;
+            this.isRecording = false;
+            this.currentSession = null;
+            this.stopTimer();
+          }
+        } catch (error) {
+          console.error('Error checking active session:', error);
+          this.isChamberRunning = false;
+          this.isRecording = false;
+          this.currentSession = null;
+          this.stopTimer();
+        }
+      },
+      showHistoryDetails(record) {
+        console.log('Showing history details for:', record);
+        this.selectedHistoryRecord = { ...record };
+        this.showHistoryModal = true;
+      },
+      closeHistoryModal() {
+        this.showHistoryModal = false;
+        this.selectedHistoryRecord = null;
+      },
+      formatDateTime(date) {
+        if (!date) return 'N/A';
+        try {
+          return new Date(date).toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+          });
+        } catch (error) {
+          console.error('Error formatting date:', error);
+          return 'Invalid Date';
+        }
+      },
+      calculateDuration(startTime, endTime) {
+        if (!startTime || !endTime) return 'N/A';
+        try {
+          const duration = Math.floor((new Date(endTime) - new Date(startTime)) / 1000);
+          const hours = Math.floor(duration / 3600);
+          const minutes = Math.floor((duration % 3600) / 60);
+          const seconds = duration % 60;
+          return `${hours}h ${minutes}m ${seconds}s`;
+        } catch (error) {
+          console.error('Error calculating duration:', error);
+          return 'Invalid Duration';
+        }
+      },
+      closeTimerCompletionModal() {
+        this.showTimerCompletionModal = false;
+      },
+      restartTimer() {
+        this.showTimerCompletionModal = false;
+        this.startTimer();
+      },
     },
     watch: {
       selectedBatch(newValue) {
@@ -1086,6 +1499,11 @@
           if (batch) {
             this.currentBatch = batch;
           }
+        }
+      },
+      latestSmokeLevel(newValue) {
+        if (newValue <= this.smokeLevelThresholds.low) {
+          this.checkAndShowNotification();
         }
       }
     }
@@ -1138,19 +1556,19 @@
     display: flex;
     min-height: 100vh;
     font-family: 'Lato', sans-serif;
-    background: linear-gradient(135deg, #f6f9fc 0%, #eef2f7 100%);
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   .dashboard-wrapper.dark-mode {
-    background: linear-gradient(135deg, #1a1f2c 0%, #2d3748 100%);
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: #e2e8f0;
   }
   
   /* Sidebar */
   .sidebar {
     width: 280px;
-    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
     color: #e2e8f0;
     position: fixed;
     top: 0;
@@ -1183,7 +1601,7 @@
     margin: 0;
     font-size: 28px;
     font-weight: 700;
-    background: linear-gradient(135deg, #63b3ed 0%, #4299e1 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1206,51 +1624,40 @@
   }
   
   .sidebar-link {
-    color: #e2e8f0;
-    font-size: 16px;
-    font-weight: 500;
-    text-decoration: none;
-    padding: 12px 18px;
-    border-radius: 12px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    white-space: nowrap;
+    padding: 12px 18px;
+    color: #e2e8f0;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
   }
   
   .sidebar-link:hover {
     background: rgba(255, 255, 255, 0.1);
-    color: #63b3ed;
-    transform: translateX(5px);
   }
   
   .sidebar-link.active {
-    background: rgba(99, 179, 237, 0.2);
-    color: #63b3ed;
-    box-shadow: 0 4px 12px rgba(99, 179, 237, 0.2);
+    background: rgba(255, 255, 255, 0.2);
   }
   
   .sign-out-button {
-    padding: 12px 20px;
-    font-size: 16px;
-    font-weight: 500;
-    color: #ffffff;
-    background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px;
     margin-top: auto;
-    margin-bottom: 50px;
-    box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: all 0.3s ease;
   }
   
   .sign-out-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(245, 101, 101, 0.4);
+    background: rgba(255, 255, 255, 0.2);
   }
   
   /* Main Content */
@@ -1392,7 +1799,7 @@
   
   /* Generic Card Styling */
   .card {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(12px);
     padding: 25px;
     border-radius: 20px;
@@ -1405,7 +1812,7 @@
   }
   
   .dark-mode .card {
-    background: rgba(45, 55, 72, 0.9);
+    background: rgba(30, 41, 59, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2),
                 0 6px 6px rgba(0, 0, 0, 0.1),
@@ -1460,7 +1867,7 @@
     margin: 0;
     font-size: 36px;
     font-weight: 700;
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -1496,21 +1903,21 @@
   }
   
   .status-on {
-    color: #48bb78;
+    color: #10b981;
     font-size: 14px;
     font-weight: 600;
     padding: 4px 12px;
     border-radius: 20px;
-    background: rgba(72, 187, 120, 0.1);
+    background: rgba(16, 185, 129, 0.1);
   }
   
   .status-off {
-    color: #f56565;
+    color: #ef4444;
     font-size: 14px;
     font-weight: 600;
     padding: 4px 12px;
     border-radius: 20px;
-    background: rgba(245, 101, 101, 0.1);
+    background: rgba(239, 68, 68, 0.1);
   }
   
   .fan-toggle {
@@ -1529,7 +1936,7 @@
   }
   
   .fan-toggle.active {
-    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   }
   
   .fan-toggle-thumb {
@@ -1548,60 +1955,221 @@
     transform: translateX(30px);
   }
   
-  /* Chamber Card */
-  .chamber-card h3 {
-    margin: 0 0 10px;
-    font-size: 18px;
-    font-weight: 500;
-    color: #1a202c;
+  /* Enhanced Chamber Card Styles */
+  .chamber-card {
+    position: relative;
+    overflow: hidden;
+    padding: 25px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
   }
   
-  .dark-mode .chamber-card h3 {
+  .dark-mode .chamber-card {
+    background: linear-gradient(135deg, rgba(45, 55, 72, 0.9) 0%, rgba(45, 55, 72, 0.95) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .chamber-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .chamber-header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #2d3748;
+  }
+  
+  .dark-mode .chamber-header h3 {
     color: #e2e8f0;
   }
   
-  .chamber-status {
-    margin: 0 0 8px;
-    position: relative;
-  }
-  
-  .chamber-timer {
-    margin: 0 0 8px;
-    font-size: 13px;
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 14px;
     font-weight: 500;
-    color: #3182ce;
+    transition: all 0.3s ease;
   }
   
-  .dark-mode .chamber-timer {
-    color: #63b3ed;
+  .status-indicator .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
   }
   
+  .status-on {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .status-on .status-dot {
+    background: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  }
+  
+  .status-off {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+  
+  .status-off .status-dot {
+    background: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  }
+  
+  .chamber-content {
+    margin: 20px 0;
+  }
+  
+  /* Timer Display Styles */
+  .chamber-timer {
+    text-align: center;
+  }
+  
+  .timer-label {
+    font-size: 14px;
+    color: #718096;
+    margin-bottom: 10px;
+  }
+  
+  .dark-mode .timer-label {
+    color: #a0aec0;
+  }
+  
+  .timer-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .timer-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+  }
+  
+  .timer-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #2d3748;
+    font-family: 'Courier New', monospace;
+    line-height: 1;
+  }
+  
+  .dark-mode .timer-value {
+    color: #e2e8f0;
+  }
+  
+  .timer-separator {
+    font-size: 32px;
+    font-weight: 700;
+    color: #718096;
+    margin-top: -8px;
+  }
+  
+  .dark-mode .timer-separator {
+    color: #a0aec0;
+  }
+  
+  /* Duration Input Styles */
+  .chamber-input {
+    text-align: center;
+  }
+  
+  .input-label {
+    font-size: 14px;
+    color: #718096;
+    margin-bottom: 15px;
+  }
+  
+  .dark-mode .input-label {
+    color: #a0aec0;
+  }
+  
+  .duration-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 20px; /* Increased gap since we have only two inputs */
+  }
+  
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .duration-input {
+    width: 80px; /* Slightly wider since we have only two inputs */
+    height: 50px;
+    padding: 8px;
+    font-size: 24px;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    color: #2d3748;
+    transition: all 0.3s ease;
+  }
+  
+  .dark-mode .duration-input {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .duration-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    outline: none;
+  }
+  
+  .duration-input::placeholder {
+    color: #a0aec0;
+  }
+  
+  /* Enhanced Button Styles */
   .chamber-button {
-    padding: 12px 25px;
+    width: 100%;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     font-size: 16px;
     font-weight: 600;
     border: none;
     border-radius: 12px;
     cursor: pointer;
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-    color: #ffffff;
-    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   }
   
   .chamber-button.active {
-    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
-    box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
   }
   
   .chamber-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(66, 153, 225, 0.4);
+    box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
   }
   
   .chamber-button.active:hover {
-    box-shadow: 0 6px 15px rgba(229, 62, 62, 0.4);
+    box-shadow: 0 6px 15px rgba(220, 38, 38, 0.4);
   }
   
   .chamber-button:disabled {
@@ -1609,6 +2177,66 @@
     cursor: not-allowed;
     color: #a0aec0;
     box-shadow: none;
+    transform: none;
+  }
+  
+  .button-icon {
+    font-size: 18px;
+  }
+  
+  /* Responsive Adjustments */
+  @media (max-width: 768px) {
+    .chamber-card {
+      padding: 20px;
+    }
+  
+    .chamber-header h3 {
+      font-size: 18px;
+    }
+  
+    .timer-value {
+      font-size: 28px;
+    }
+  
+    .duration-input {
+      width: 70px;
+      height: 45px;
+      font-size: 20px;
+    }
+  
+    .chamber-button {
+      padding: 12px;
+      font-size: 15px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .chamber-card {
+      padding: 15px;
+    }
+  
+    .chamber-header h3 {
+      font-size: 16px;
+    }
+  
+    .timer-value {
+      font-size: 24px;
+    }
+  
+    .duration-input {
+      width: 60px;
+      height: 40px;
+      font-size: 18px;
+    }
+  
+    .chamber-button {
+      padding: 10px;
+      font-size: 14px;
+    }
+  
+    .duration-inputs {
+      gap: 15px;
+    }
   }
   
   /* Input Fields */
@@ -1633,8 +2261,8 @@
   }
   
   .duration-input:focus {
-    border-color: #4299e1;
-    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
   }
   
   .timer-colon {
@@ -2190,6 +2818,24 @@
     margin: 20px 0;
     width: 100%;
     padding: 0 20px;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #4299e1 #e2e8f0; /* Firefox */
+  }
+  
+  /* Custom scrollbar for Webkit browsers */
+  .history-table-container::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  .history-table-container::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 4px;
+  }
+  
+  .history-table-container::-webkit-scrollbar-thumb {
+    background: #4299e1;
+    border-radius: 4px;
   }
   
   .history-table {
@@ -2197,6 +2843,7 @@
     border-collapse: collapse;
     font-size: 14px;
     text-align: center;
+    min-width: 800px; /* Ensure minimum width for content */
   }
   
   .history-table th,
@@ -2204,32 +2851,116 @@
     padding: 15px;
     text-align: center;
     border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap; /* Prevent text wrapping */
   }
   
-  .dark-mode .history-table th,
-  .dark-mode .history-table td {
-    border-bottom-color: #4a5568;
+  /* Make certain columns more compact on mobile */
+  @media (max-width: 768px) {
+    .history-table th,
+    .history-table td {
+      padding: 10px 8px;
+      font-size: 13px;
+    }
+  
+    /* Hide less important columns on mobile */
+    .history-table th:nth-child(2),
+    .history-table td:nth-child(2),
+    .history-table th:nth-child(3),
+    .history-table td:nth-child(3) {
+      display: none;
+    }
+  
+    /* Adjust column widths for better mobile display */
+    .history-table th:first-child,
+    .history-table td:first-child {
+      position: sticky;
+      left: 0;
+      background: white;
+      z-index: 1;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    }
+  
+    .dark-mode .history-table th:first-child,
+    .dark-mode .history-table td:first-child {
+      background: #2d3748;
+    }
+  
+    /* Make status column more compact */
+    .history-table th:last-child,
+    .history-table td:last-child {
+      min-width: 80px;
+    }
   }
   
-  .history-table th {
-    font-weight: 600;
-    color: #4a5568;
-    background: #f7fafc;
+  /* Add responsive styles for the table header */
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 0 20px;
+    flex-wrap: wrap;
+    gap: 15px;
   }
   
-  .dark-mode .history-table th {
-    color: #a0aec0;
-    background: #2d3748;
+  .history-actions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
   }
   
-  .history-row:hover {
-    background: #f7fafc;
+  /* Responsive styles for filters and actions */
+  @media (max-width: 768px) {
+    .history-header {
+      flex-direction: column;
+      align-items: stretch;
+      text-align: center;
+    }
+  
+    .history-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+  
+    .batch-select,
+    .print-button {
+      width: 100%;
+    }
+  
+    .history-filters {
+      flex-direction: column;
+      width: 100%;
+    }
+  
+    .history-filter {
+      width: 100%;
+    }
   }
   
-  .dark-mode .history-row:hover {
-    background: #2d3748;
+  /* Add a visual indicator for scrollable table */
+  .history-table-container::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.1));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
   }
   
+  .history-table-container:hover::after {
+    opacity: 1;
+  }
+  
+  .dark-mode .history-table-container::after {
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1));
+  }
+  
+  /* Improve status badge visibility on mobile */
   .status-badge {
     padding: 4px 8px !important;
     border-radius: 4px !important;
@@ -2238,129 +2969,17 @@
     border: 1px solid #000 !important;
     display: inline-block !important;
     min-width: 80px !important;
+    white-space: nowrap !important;
   }
   
-  .status-badge.normal {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #2f855a !important;
-  }
-  
-  .status-badge.warning {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #c53030 !important;
-  }
-  
-  .status-badge.active {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #2f855a !important;
-  }
-  
-  .status-badge.inactive {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #4a5568 !important;
-  }
-  
-  .history-pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    margin: 20px;
-    padding: 0 20px;
-  }
-  
-  .pagination-button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 8px;
-    background: #4299e1;
-    color: white;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-  }
-  
-  .pagination-button:hover:not(:disabled) {
-    background: #3182ce;
-  }
-  
-  .pagination-button:disabled {
-    background: #e2e8f0;
-    cursor: not-allowed;
-  }
-  
-  .page-info {
-    font-size: 14px;
-    color: #4a5568;
-  }
-  
-  .dark-mode .page-info {
-    color: #a0aec0;
-  }
-  
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    .history-section {
-      padding: 0 10px;
-    }
-  
-    .history-card {
-      padding: 15px;
-    }
-  
-    .history-filters {
-      flex-direction: column;
-      align-items: center;
-    }
-  
-    .history-filter {
-      width: 100%;
-      min-width: unset;
-    }
-  
-    .history-table-container {
-      padding: 0 15px;
-    }
-  
-    .batch-summary {
-      width: calc(100% - 30px);
-      margin: 20px 15px;
-    }
-  
-    .history-table th,
-    .history-table td {
-      padding: 10px;
-      font-size: 13px;
-    }
-  
-    .history-pagination {
-      margin: 15px;
-      padding: 0 15px;
-    }
-  }
-  
-  /* Add these styles to the existing <style> section */
+  /* Add responsive styles for the batch summary */
   .batch-summary {
     margin: 20px auto;
     padding: 20px;
-    background: rgba(66, 153, 225, 0.1);
+    background: rgba(59, 130, 246, 0.1);
     border-radius: 12px;
     width: calc(100% - 40px);
     text-align: center;
-  }
-  
-  .batch-summary h4 {
-    margin: 0 0 15px;
-    font-size: 18px;
-    color: #2d3748;
-  }
-  
-  .dark-mode .batch-summary h4 {
-    color: #e2e8f0;
   }
   
   .summary-grid {
@@ -2372,264 +2991,766 @@
     text-align: center;
   }
   
-  .summary-item {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-  
-  .summary-label {
-    font-size: 14px;
-    color: #718096;
-  }
-  
-  .dark-mode .summary-label {
-    color: #a0aec0;
-  }
-  
-  .summary-value {
-    font-size: 16px;
-    font-weight: 600;
-    color: #2d3748;
-  }
-  
-  .dark-mode .summary-value {
-    color: #e2e8f0;
-  }
-  
   @media (max-width: 768px) {
     .summary-grid {
       grid-template-columns: 1fr;
     }
+  
+    .summary-item {
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 8px;
+    }
+  
+    .dark-mode .summary-item {
+      background: rgba(45, 55, 72, 0.5);
+    }
   }
   
-  /* Add these styles to the existing <style> section */
-  .history-header {
+  /* Add responsive styles for pagination */
+  .history-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin: 20px;
+    padding: 0 20px;
+    flex-wrap: wrap;
+  }
+  
+  @media (max-width: 480px) {
+    .history-pagination {
+      flex-direction: column;
+      gap: 10px;
+    }
+  
+    .pagination-button {
+      width: 100%;
+    }
+  }
+  
+  /* Mobile Card View Styles */
+  .history-cards {
+    display: none;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px;
+  }
+  
+  .history-card-item {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.2s ease;
+  }
+  
+  .dark-mode .history-card-item {
+    background: #2d3748;
+  }
+  
+  .history-card-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
-    padding: 0 20px;
-    max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
+    padding: 12px 15px;
+    background: rgba(59, 130, 246, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   }
   
-  .print-button {
+  .dark-mode .card-header {
+    background: rgba(59, 130, 246, 0.2);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .card-time {
+    font-weight: 600;
+    color: #2d3748;
+  }
+  
+  .dark-mode .card-time {
+    color: #e2e8f0;
+  }
+  
+  .card-content {
+    padding: 15px;
+  }
+  
+  .card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  
+  .card-row:last-child {
+    border-bottom: none;
+  }
+  
+  .dark-mode .card-row {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .card-row .label {
+    color: #718096;
+    font-size: 14px;
+  }
+  
+  .dark-mode .card-row .label {
+    color: #a0aec0;
+  }
+  
+  .card-row .value {
+    font-weight: 500;
+    color: #2d3748;
+  }
+  
+  .dark-mode .card-row .value {
+    color: #e2e8f0;
+  }
+  
+  /* Status-specific styles */
+  .history-card-item.normal {
+    border-left: 4px solid #10b981;
+  }
+  
+  .history-card-item.warning {
+    border-left: 4px solid #ef4444;
+  }
+  
+  .history-card-item.active {
+    border-left: 4px solid #3b82f6;
+  }
+  
+  .history-card-item.inactive {
+    border-left: 4px solid #94a3b8;
+  }
+  
+  /* Responsive Display Classes */
+  .desktop-only {
+    display: block;
+  }
+  
+  .mobile-only {
+    display: none;
+  }
+  
+  /* Media Queries */
+  @media (max-width: 768px) {
+    .desktop-only {
+      display: none;
+    }
+  
+    .mobile-only {
+      display: flex;
+    }
+  
+    .history-cards {
+      margin: 0 -10px;
+    }
+  
+    .history-card-item {
+      margin: 0 10px;
+    }
+  
+    .card-header {
+      padding: 10px 12px;
+    }
+  
+    .card-content {
+      padding: 12px;
+    }
+  
+    .card-row {
+      padding: 6px 0;
+    }
+  
+    .card-row .label,
+    .card-row .value {
+      font-size: 13px;
+    }
+  }
+  
+  /* Status Badge Styles for Cards */
+  .history-card-item .status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+  
+  .history-card-item .status-badge.normal {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+  
+  .history-card-item .status-badge.warning {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+  
+  .history-card-item .status-badge.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+  
+  .history-card-item .status-badge.inactive {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+  }
+  
+  .dark-mode .history-card-item .status-badge.normal {
+    background: rgba(16, 185, 129, 0.2);
+  }
+  
+  .dark-mode .history-card-item .status-badge.warning {
+    background: rgba(239, 68, 68, 0.2);
+  }
+  
+  .dark-mode .history-card-item .status-badge.active {
+    background: rgba(59, 130, 246, 0.2);
+  }
+  
+  .dark-mode .history-card-item .status-badge.inactive {
+    background: rgba(148, 163, 184, 0.2);
+  }
+
+  .sidebar-section {
+    margin: 1rem 0;
+    padding: 0.5rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .sidebar-section-title {
+    font-size: 0.9rem;
+    color: #888;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sidebar-section .sidebar-link {
+    padding-left: 2rem;
+  }
+
+  .dark-mode .sidebar-section-title {
+    color: #666;
+  }
+
+  .dark-mode .sidebar-section {
+    border-top-color: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Smoke Level Indicator Styles */
+  .smoke-level-indicator {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .smoke-level-text {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .smoke-level-bar {
+    height: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .smoke-level-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .smoke-level-low .smoke-level-fill {
+    background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+  }
+
+  .smoke-level-medium .smoke-level-fill {
+    background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+  }
+
+  .smoke-level-high .smoke-level-fill {
+    background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+  }
+
+  .smoke-level-low .smoke-level-text {
+    color: #10b981;
+  }
+
+  .smoke-level-medium .smoke-level-text {
+    color: #f59e0b;
+  }
+
+  .smoke-level-high .smoke-level-text {
+    color: #ef4444;
+  }
+
+  .dark-mode .smoke-level-indicator {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .dark-mode .smoke-level-bar {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Smoke Level Notification Styles */
+  .smoke-level-notification {
+    margin-top: 12px;
+    padding: 10px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 8px;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .notification-icon {
+    font-size: 18px;
+  }
+
+  .notification-text {
     font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(66, 153, 225, 0.3);
+    color: #dc2626;
+    font-weight: 500;
   }
-  
-  .print-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(66, 153, 225, 0.4);
+
+  .dark-mode .smoke-level-notification {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.3);
   }
-  
-  .print-icon {
-    font-size: 16px;
+
+  .dark-mode .notification-text {
+    color: #f87171;
   }
-  
-  .dark-mode .print-button {
-    background: linear-gradient(135deg, #63b3ed 0%, #4299e1 100%);
-  }
-  
-  @media (max-width: 768px) {
-    .history-header {
-      flex-direction: column;
-      gap: 15px;
-      text-align: center;
-    }
-  
-    .print-button {
-      width: 100%;
-      justify-content: center;
-    }
-  }
-  
-  /* Print Styles */
-  @media print {
-    .sidebar,
-    .dashboard-header,
-    .hamburger,
-    .theme-toggle,
-    .sign-out-button,
-    .history-filters,
-    .history-pagination {
-      display: none !important;
-    }
 
-    .dashboard-wrapper {
-      display: block;
-      background: none;
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
     }
-
-    .main-content {
-      margin: 0 !important;
-      padding: 0 !important;
-      width: 100% !important;
-    }
-
-    .dashboard {
-      margin: 0 !important;
-      padding: 20px !important;
-    }
-
-    .history-table-container {
-      overflow: visible !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-
-    .history-table {
-      width: 100% !important;
-      border-collapse: collapse !important;
-      page-break-inside: auto !important;
-    }
-
-    .history-table th,
-    .history-table td {
-      border: 1px solid #000 !important;
-      padding: 8px !important;
-      text-align: center !important;
-      background: white !important;
-      color: black !important;
-    }
-
-    .history-table th {
-      background: #f0f0f0 !important;
-      font-weight: bold !important;
-    }
-
-    .history-row {
-      page-break-inside: avoid !important;
-    }
-
-    .batch-summary {
-      background: none !important;
-      border: 1px solid #000 !important;
-      margin: 20px 0 !important;
-      padding: 15px !important;
-      page-break-inside: avoid !important;
-    }
-
-    .summary-grid {
-      display: grid !important;
-      grid-template-columns: repeat(2, 1fr) !important;
-      gap: 10px !important;
-    }
-
-    .summary-item {
-      border: 1px solid #000 !important;
-      padding: 8px !important;
-      text-align: left !important;
-    }
-
-    .summary-label {
-      color: black !important;
-      font-weight: bold !important;
-      display: block !important;
-      margin-bottom: 4px !important;
-    }
-
-    .summary-value {
-      color: black !important;
-      font-size: 14px !important;
-    }
-
-    .history-card {
-      page-break-before: auto !important;
-      page-break-after: auto !important;
-      max-width: none !important;
-    }
-
-    .history-header h1 {
-      color: black !important;
-      font-size: 24px !important;
-      margin-bottom: 20px !important;
-      text-align: center !important;
-    }
-
-    .history-header h1::before {
-      content: attr(data-batch-info);
-      display: block;
-      font-size: 16px;
-      color: #333;
-      margin-bottom: 10px;
-      font-weight: 600;
-    }
-
-    .history-header h1::after {
-      content: attr(data-print-date);
-      display: block;
-      font-size: 12px;
-      color: #666;
-      margin-top: 5px;
-      font-weight: normal;
-    }
-
-    .history-table td {
-      padding: 8px !important;
-      vertical-align: middle !important;
-    }
-
-    .history-table td:last-child {
-      width: 100px !important;
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 
-  .history-actions {
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
-    gap: 15px;
     align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    animation: fadeIn 0.3s ease-out;
   }
 
-  .batch-select {
-    padding: 10px 15px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+  .modal-content {
     background: white;
-    color: #2d3748;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    min-width: 200px;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
   }
 
-  .dark-mode .batch-select {
-    background: #2d3748;
-    border-color: #4a5568;
+  .dark-mode .modal-content {
+    background: #1e293b;
     color: #e2e8f0;
   }
 
-  .batch-select:hover {
-    border-color: #4299e1;
+  .modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
-  @media (max-width: 768px) {
-    .history-actions {
+  .modal-icon {
+    font-size: 24px;
+  }
+
+  .modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    color: #dc2626;
+  }
+
+  .dark-mode .modal-header h3 {
+    color: #f87171;
+  }
+
+  .modal-body {
+    margin-bottom: 24px;
+  }
+
+  .modal-body p {
+    margin: 8px 0;
+    color: #4b5563;
+    line-height: 1.5;
+  }
+
+  .dark-mode .modal-body p {
+    color: #cbd5e1;
+  }
+
+  .modal-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  .modal-button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+
+  .modal-button.confirm {
+    background: #dc2626;
+    color: white;
+  }
+
+  .modal-button.confirm:hover {
+    background: #b91c1c;
+  }
+
+  .modal-button.dismiss {
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+
+  .dark-mode .modal-button.dismiss {
+    background: #334155;
+    color: #e2e8f0;
+  }
+
+  .modal-button.dismiss:hover {
+    background: #e5e7eb;
+  }
+
+  .dark-mode .modal-button.dismiss:hover {
+    background: #475569;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .history-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  .history-row:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+
+  .dark-mode .history-row:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+  }
+
+  .history-card-item {
+    cursor: pointer;
+  }
+
+  /* Modal Styles */
+  .modal-content {
+    max-width: 500px;
+    width: 90%;
+  }
+
+  .modal-body {
+    display: grid;
+    gap: 12px;
+  }
+
+  .modal-body p {
+    margin: 0;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 6px;
+  }
+
+  .dark-mode .modal-body p {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .modal-body strong {
+    color: #3b82f6;
+    margin-right: 8px;
+  }
+
+  .dark-mode .modal-body strong {
+    color: #60a5fa;
+  }
+
+  /* History Modal Styles */
+  .history-modal {
+    max-width: 500px;
+    width: 90%;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .dark-mode .history-modal {
+    background: #1e293b;
+    color: #e2e8f0;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .dark-mode .modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    color: #2d3748;
+  }
+
+  .dark-mode .modal-header h3 {
+    color: #e2e8f0;
+  }
+
+  .close-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #718096;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .dark-mode .close-button {
+    color: #a0aec0;
+  }
+
+  .close-button:hover {
+    color: #2d3748;
+  }
+
+  .dark-mode .close-button:hover {
+    color: #e2e8f0;
+  }
+
+  .modal-body {
+    padding: 20px;
+  }
+
+  .history-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  .dark-mode .history-detail-item {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .history-detail-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .history-detail-item label {
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .dark-mode .history-detail-item label {
+    color: #a0aec0;
+  }
+
+  .history-detail-item span {
+    color: #2d3748;
+  }
+
+  .dark-mode .history-detail-item span {
+    color: #e2e8f0;
+  }
+
+  /* Make history rows clickable */
+  .history-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  .history-row:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+
+  .dark-mode .history-row:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+  }
+
+  .history-card-item {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .history-card-item:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Timer Completion Modal Styles */
+  .timer-completion-modal {
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+  }
+
+  .timer-completion-modal .modal-header {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px 12px 0 0;
+    position: relative;
+  }
+
+  .timer-completion-modal .modal-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  .timer-completion-modal .modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: white;
+  }
+
+  .timer-completion-modal .modal-body {
+    padding: 2rem;
+  }
+
+  .timer-completion-modal .modal-body p {
+    margin: 0.5rem 0;
+    color: #4a5568;
+    font-size: 1.1rem;
+  }
+
+  .timer-completion-modal .modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+  }
+
+  .timer-completion-modal .modal-button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+  }
+
+  .timer-completion-modal .modal-button.restart {
+    background: #4299e1;
+    color: white;
+  }
+
+  .timer-completion-modal .modal-button.restart:hover {
+    background: #3182ce;
+    transform: translateY(-1px);
+  }
+
+  .timer-completion-modal .modal-button.close {
+    background: #e2e8f0;
+    color: #4a5568;
+  }
+
+  .timer-completion-modal .modal-button.close:hover {
+    background: #cbd5e0;
+  }
+
+  /* Dark mode styles for timer completion modal */
+  :root.dark-mode .timer-completion-modal .modal-body p {
+    color: #e2e8f0;
+  }
+
+  :root.dark-mode .timer-completion-modal .modal-button.close {
+    background: #4a5568;
+    color: #e2e8f0;
+  }
+
+  :root.dark-mode .timer-completion-modal .modal-button.close:hover {
+    background: #2d3748;
+  }
+
+  @media (max-width: 640px) {
+    .timer-completion-modal .modal-actions {
       flex-direction: column;
-      width: 100%;
     }
 
-    .batch-select {
+    .timer-completion-modal .modal-button {
       width: 100%;
     }
+  }
 
-    .print-button {
-      width: 100%;
-    }
+  .sidebar-icon {
+    font-size: 1.2rem;
+    margin-right: 10px;
+    display: inline-block;
+    width: 24px;
+    text-align: center;
   }
   </style>
   

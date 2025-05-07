@@ -37,10 +37,25 @@ const routes = [
     component: () => import('../components/UserDashboard.vue'),
     meta: { requiresAuth: true, role: 'user' },
   },
+  {
+    path: '/settings',
+    component: () => import('../components/UserSettings.vue'),
+    meta: { requiresAuth: true, role: 'user' },
+  },
+  {
+    path: '/admin-list',
+    component: () => import('../components/AdminList.vue'),
+    meta: { requiresAuth: true, role: 'admin' }
+  },
+  {
+    path: '/user-list',
+    component: () => import('../components/UserList.vue'),
+    meta: { requiresAuth: true, role: 'admin' }
+  },
   { 
     path: '/:pathMatch(.*)*', 
     redirect: '/login' 
-  },
+  }
 ];
 
 const router = createRouter({

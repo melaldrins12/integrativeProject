@@ -10,9 +10,9 @@
       </div>
       <div class="sidebar-content">
         <div class="sidebar-links">
-          <a href="/dashboard" class="sidebar-link active" @click="toggleSidebar">User Dashboard</a>
-          <a href="/settings" class="sidebar-link" @click="toggleSidebar">Settings</a>
-          <a href="/profile" class="sidebar-link" @click="toggleSidebar">History</a>
+          <router-link to="/user-dashboard" class="sidebar-link" :class="{ active: $route.path === '/user-dashboard' }" @click="toggleSidebar">User Dashboard</router-link>
+          <router-link to="/settings" class="sidebar-link" :class="{ active: $route.path === '/settings' }" @click="toggleSidebar">Settings</router-link>
+          
         </div>
         <button @click="signOut" class="sign-out-button" aria-label="Sign Out">Sign Out</button>
       </div>
@@ -27,9 +27,7 @@
             <span class="hamburger-icon">☰</span>
           </button>
           <div class="header-right">
-            <button class="theme-toggle" @click="toggleTheme" :aria-label="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
-              {{ isDarkMode ? '☀️' : '🌙' }}
-            </button>
+            <!-- Removed theme toggle button -->
           </div>
         </div>
       </header>
@@ -49,8 +47,14 @@
             <!-- Metrics Section -->
             <div class="metrics-section">
               <div class="card metric-card animate-fade-in" style="animation-delay: 0.2s;">
-                <h3>Humidity</h3>
-                <p class="metric-value">{{ latestHumidity }}<span class="metric-unit">%</span></p>
+                <h3>Smoke Level</h3>
+                <p class="metric-value">{{ latestSmokeLevel }}<span class="metric-unit">%</span></p>
+                <div class="smoke-level-indicator" :class="smokeLevelClass">
+                  <span class="smoke-level-text">{{ smokeLevelText }}</span>
+                  <div class="smoke-level-bar">
+                    <div class="smoke-level-fill" :style="{ width: smokeLevelPercentage + '%' }"></div>
+                  </div>
+                </div>
               </div>
               <div class="card metric-card animate-fade-in" style="animation-delay: 0.4s;">
                 <h3>Temperature</h3>
@@ -70,78 +74,6 @@
           <div class="loading-wrapper">
             <div class="spinner"></div>
             <p class="loading-text">Redirecting to login...</p>
-          </div>
-        </div>
-      </main>
-
-      <!-- Settings Section -->
-      <main class="dashboard" v-if="showSettings">
-        <div class="settings-header">
-          <h1>User Settings</h1>
-        </div>
-        <div class="settings-content">
-          <div class="card settings-card">
-            <div class="settings-section">
-              <h3>Notifications</h3>
-              <div class="settings-grid">
-                <div class="setting-item">
-                  <label>Email Notifications</label>
-                  <div class="toggle-switch">
-                    <input 
-                      type="checkbox" 
-                      v-model="settings.emailNotifications"
-                      @change="updateSettings"
-                      id="emailNotifications"
-                    >
-                    <label for="emailNotifications"></label>
-                  </div>
-                </div>
-                <div class="setting-item">
-                  <label>Alert Frequency (minutes)</label>
-                  <input 
-                    type="number" 
-                    v-model="settings.alertFrequency" 
-                    min="1" 
-                    max="60"
-                    @change="updateSettings"
-                  >
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-section">
-              <h3>Display Preferences</h3>
-              <div class="settings-grid">
-                <div class="setting-item">
-                  <label>Temperature Unit</label>
-                  <select 
-                    v-model="settings.temperatureUnit"
-                    @change="updateSettings"
-                    class="settings-select"
-                  >
-                    <option value="celsius">Celsius (°C)</option>
-                    <option value="fahrenheit">Fahrenheit (°F)</option>
-                  </select>
-                </div>
-                <div class="setting-item">
-                  <label>Dark Mode</label>
-                  <div class="toggle-switch">
-                    <input 
-                      type="checkbox" 
-                      v-model="settings.darkMode"
-                      @change="updateSettings"
-                      id="darkMode"
-                    >
-                    <label for="darkMode"></label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-actions">
-              <button @click="saveSettings" class="save-button">Save Settings</button>
-              <button @click="resetSettings" class="reset-button">Reset to Default</button>
-            </div>
           </div>
         </div>
       </main>
@@ -179,8 +111,9 @@ const tooltipDirective = {
 };
 
 export default {
+  name: 'UserDashboard',
   components: {
-    CurveChart,
+    CurveChart
   },
   directives: {
     tooltip: tooltipDirective,
@@ -190,10 +123,15 @@ export default {
       user: null,
       isAuthLoading: true,
       latestTemperature: 0,
-      latestHumidity: 0,
+      latestSmokeLevel: 0,
       dataInterval: null,
       isDarkMode: false,
       isSidebarOpen: false,
+      smokeLevelThresholds: {
+        low: 30,
+        medium: 60,
+        high: 90
+      },
       chartData: {
         labels: [],
         datasets: [
@@ -214,7 +152,7 @@ export default {
             hidden: false,
           },
           {
-            label: 'Humidity (%)',
+            label: 'Smoke Level (%)',
             data: [],
             borderColor: '#4ecdc4',
             backgroundColor: (ctx) => {
@@ -312,22 +250,105 @@ export default {
           },
         },
       },
-      showSettings: false,
-      settings: {
-        emailNotifications: true,
-        alertFrequency: 15,
-        temperatureUnit: 'celsius',
-        darkMode: false
-      }
     };
+  },
+  computed: {
+    smokeLevelClass() {
+      if (this.latestSmokeLevel <= this.smokeLevelThresholds.low) {
+        return 'smoke-level-low';
+      } else if (this.latestSmokeLevel <= this.smokeLevelThresholds.medium) {
+        return 'smoke-level-medium';
+      } else {
+        return 'smoke-level-high';
+      }
+    },
+    smokeLevelText() {
+      if (this.latestSmokeLevel <= this.smokeLevelThresholds.low) {
+        return 'Low';
+      } else if (this.latestSmokeLevel <= this.smokeLevelThresholds.medium) {
+        return 'Medium';
+      } else {
+        return 'High';
+      }
+    },
+    smokeLevelPercentage() {
+      return Math.min(100, (this.latestSmokeLevel / this.smokeLevelThresholds.high) * 100);
+    }
+  },
+  methods: {
+    signOut() {
+      signOut()
+        .then(() => {
+          this.$router.push('/login');
+        })
+        .catch((error) => {
+          console.error('Error signing out', error);
+        });
+    },
+    toggleSidebar() {
+      this.isSidebarOpen = !this.isSidebarOpen;
+    },
+    generateInitialData() {
+      const now = new Date();
+      const labels = [];
+      const temperatureData = [];
+      const smokeLevelData = [];
+
+      for (let i = 0; i < 24; i++) {
+        const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+        labels.push(time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        const temp = Math.random() * 30;
+        const hum = Math.random() * 100;
+        temperatureData.push(temp);
+        smokeLevelData.push(hum);
+      }
+
+      this.chartData.labels = labels.reverse();
+      this.chartData.datasets[0].data = temperatureData.reverse();
+      this.chartData.datasets[1].data = smokeLevelData.reverse();
+
+      this.latestTemperature = temperatureData[0].toFixed(1);
+      this.latestSmokeLevel = smokeLevelData[0].toFixed(1);
+    },
+    startLiveDataSimulation() {
+      this.dataInterval = setInterval(() => {
+        const now = new Date();
+        const newLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const newTemp = Math.random() * 30;
+        const newHum = Math.random() * 100;
+
+        const updatedLabels = [...this.chartData.labels];
+        const updatedTempData = [...this.chartData.datasets[0].data];
+        const updatedSmokeLevelData = [...this.chartData.datasets[1].data];
+
+        updatedLabels.shift();
+        updatedLabels.push(newLabel);
+        updatedTempData.shift();
+        updatedTempData.push(newTemp);
+        updatedSmokeLevelData.shift();
+        updatedSmokeLevelData.push(newHum);
+
+        this.chartData = {
+          labels: updatedLabels,
+          datasets: [
+            { ...this.chartData.datasets[0], data: updatedTempData, hidden: this.chartData.datasets[0].hidden },
+            { ...this.chartData.datasets[1], data: updatedSmokeLevelData, hidden: this.chartData.datasets[1].hidden },
+          ],
+        };
+
+        this.latestTemperature = newTemp.toFixed(1);
+        this.latestSmokeLevel = newHum.toFixed(1);
+      }, 5000);
+    }
   },
   async created() {
     // Initialize data immediately
     this.generateInitialData();
     this.startLiveDataSimulation();
     
-    // Set theme
+    // Set theme from localStorage
     this.isDarkMode = localStorage.getItem('theme') === 'dark';
+    document.body.classList.toggle('dark-mode', this.isDarkMode);
     
     // Listen for auth state changes
     auth.onAuthStateChanged(async (user) => {
@@ -348,19 +369,14 @@ export default {
             this.$router.push(userData.role === 'admin' ? '/admin-dashboard' : '/login');
             return;
           }
-          if (userData.settings) {
-            this.settings = { ...this.settings, ...userData.settings };
-            console.log('User settings loaded:', this.settings);
-          } else {
-            // If no settings exist, create default settings
-            await updateDoc(doc(db, 'users', user.uid), {
-              settings: this.settings
-            });
-            console.log('Default user settings created');
+          // Set dark mode from user settings
+          if (userData.settings && userData.settings.darkMode !== undefined) {
+            this.isDarkMode = userData.settings.darkMode;
+            document.body.classList.toggle('dark-mode', this.isDarkMode);
           }
         }
       } catch (error) {
-        console.error('Error loading user settings:', error);
+        console.error('Error loading user data:', error);
       }
     });
   },
@@ -368,131 +384,7 @@ export default {
     if (this.dataInterval) {
       clearInterval(this.dataInterval);
     }
-  },
-  methods: {
-    signOut() {
-      signOut()
-        .then(() => {
-          this.$router.push('/login');
-        })
-        .catch((error) => {
-          console.error('Error signing out', error);
-        });
-    },
-    generateInitialData() {
-      const now = new Date();
-      const labels = [];
-      const temperatureData = [];
-      const humidityData = [];
-
-      for (let i = 0; i < 24; i++) {
-        const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-        labels.push(time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        const temp = Math.random() * 30;
-        const hum = Math.random() * 100;
-        temperatureData.push(temp);
-        humidityData.push(hum);
-      }
-
-      this.chartData.labels = labels.reverse();
-      this.chartData.datasets[0].data = temperatureData.reverse();
-      this.chartData.datasets[1].data = humidityData.reverse();
-
-      this.latestTemperature = temperatureData[0].toFixed(1);
-      this.latestHumidity = humidityData[0].toFixed(1);
-    },
-    startLiveDataSimulation() {
-      this.dataInterval = setInterval(() => {
-        const now = new Date();
-        const newLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const newTemp = Math.random() * 30;
-        const newHum = Math.random() * 100;
-
-        const updatedLabels = [...this.chartData.labels];
-        const updatedTempData = [...this.chartData.datasets[0].data];
-        const updatedHumData = [...this.chartData.datasets[1].data];
-
-        updatedLabels.shift();
-        updatedLabels.push(newLabel);
-        updatedTempData.shift();
-        updatedTempData.push(newTemp);
-        updatedHumData.shift();
-        updatedHumData.push(newHum);
-
-        this.chartData = {
-          labels: updatedLabels,
-          datasets: [
-            { ...this.chartData.datasets[0], data: updatedTempData, hidden: this.chartData.datasets[0].hidden },
-            { ...this.chartData.datasets[1], data: updatedHumData, hidden: this.chartData.datasets[1].hidden },
-          ],
-        };
-
-        this.latestTemperature = newTemp.toFixed(1);
-        this.latestHumidity = newHum.toFixed(1);
-      }, 5000);
-    },
-    toggleTheme() {
-      this.isDarkMode = !this.isDarkMode;
-      localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
-    },
-    toggleSidebar() {
-      this.isSidebarOpen = !this.isSidebarOpen;
-    },
-    scrollToSettings() {
-      this.showSettings = true;
-      this.toggleSidebar();
-    },
-    async updateSettings() {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-        
-        // Update settings in Firestore
-        await updateDoc(doc(db, 'users', user.uid), {
-          settings: this.settings
-        });
-        console.log('User settings updated:', this.settings);
-        this.showSuccessMessage('Settings updated successfully');
-      } catch (error) {
-        console.error('Error updating settings:', error);
-        this.showErrorMessage('Failed to update settings');
-      }
-    },
-    async saveSettings() {
-      try {
-        await this.updateSettings();
-        this.showSuccessMessage('Settings saved successfully');
-      } catch (error) {
-        console.error('Error saving settings:', error);
-        this.showErrorMessage('Failed to save settings');
-      }
-    },
-    async resetSettings() {
-      try {
-        const defaultSettings = {
-          emailNotifications: true,
-          alertFrequency: 15,
-          temperatureUnit: 'celsius',
-          darkMode: false
-        };
-        
-        this.settings = { ...defaultSettings };
-        await this.updateSettings();
-        this.showSuccessMessage('Settings reset to default');
-      } catch (error) {
-        console.error('Error resetting settings:', error);
-        this.showErrorMessage('Failed to reset settings');
-      }
-    },
-    showSuccessMessage(message) {
-      // Implement your preferred notification system
-      alert(message);
-    },
-    showErrorMessage(message) {
-      // Implement your preferred notification system
-      alert(message);
-    }
-  },
+  }
 };
 </script>
 
@@ -699,18 +591,6 @@ export default {
   gap: 15px;
 }
 
-.theme-toggle {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  transition: transform 0.3s;
-}
-
-.theme-toggle:hover {
-  transform: scale(1.2);
-}
-
 /* Main Dashboard */
 .dashboard {
   text-align: center;
@@ -869,6 +749,67 @@ export default {
 
 .dark-mode .metric-unit {
   color: #a0aec0;
+}
+
+/* Smoke Level Indicator Styles */
+.smoke-level-indicator {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.smoke-level-text {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.smoke-level-bar {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.smoke-level-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.smoke-level-low .smoke-level-fill {
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+}
+
+.smoke-level-medium .smoke-level-fill {
+  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+.smoke-level-high .smoke-level-fill {
+  background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+}
+
+.smoke-level-low .smoke-level-text {
+  color: #10b981;
+}
+
+.smoke-level-medium .smoke-level-text {
+  color: #f59e0b;
+}
+
+.smoke-level-high .smoke-level-text {
+  color: #ef4444;
+}
+
+.dark-mode .smoke-level-indicator {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark-mode .smoke-level-bar {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Media Queries for Larger Screens */
@@ -1163,193 +1104,8 @@ export default {
   }
 }
 
-/* Settings Section */
-.settings-content {
-  padding: 0;
-  width: 100%;
-  text-align: center;
-}
-
-.settings-card {
-  padding: 30px;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 800px;
-}
-
-.settings-section {
-  margin-bottom: 30px;
-  text-align: left;
-}
-
-.settings-section h3 {
-  margin-bottom: 20px;
-  color: #2d3748;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.dark-mode .settings-section h3 {
-  color: #e2e8f0;
-}
-
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-}
-
-.setting-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.setting-item label {
-  font-size: 14px;
-  color: #4a5568;
-  font-weight: 500;
-}
-
-.dark-mode .setting-item label {
-  color: #a0aec0;
-}
-
-.setting-item input[type="number"] {
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  width: 100%;
-  max-width: 200px;
-}
-
-.settings-select {
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  width: 100%;
-  max-width: 200px;
-  background-color: white;
-}
-
-.dark-mode .settings-select {
-  background: #2d3748;
-  border-color: #4a5568;
-  color: #e2e8f0;
-}
-
-.dark-mode .setting-item input[type="number"] {
-  background: #2d3748;
-  border-color: #4a5568;
-  color: #e2e8f0;
-}
-
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 24px;
-}
-
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-switch label {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #e2e8f0;
-  transition: .4s;
-  border-radius: 24px;
-}
-
-.toggle-switch label:before {
-  position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
-}
-
-.toggle-switch input:checked + label {
-  background-color: #4299e1;
-}
-
-.toggle-switch input:checked + label:before {
-  transform: translateX(26px);
-}
-
-.settings-actions {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-top: 30px;
-}
-
-.save-button,
-.reset-button {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.save-button {
-  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-  color: white;
-}
-
-.reset-button {
-  background: #e2e8f0;
-  color: #4a5568;
-}
-
-.save-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(66, 153, 225, 0.4);
-}
-
-.reset-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-@media (max-width: 768px) {
-  .settings-card {
-    padding: 20px;
-  }
-
-  .settings-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .setting-item input[type="number"],
-  .settings-select {
-    max-width: 100%;
-  }
-
-  .settings-actions {
-    flex-direction: column;
-  }
-
-  .save-button,
-  .reset-button {
-    width: 100%;
-  }
+/* Remove theme toggle button styles */
+.theme-toggle {
+  display: none;
 }
 </style>
